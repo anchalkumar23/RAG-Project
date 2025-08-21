@@ -5,7 +5,10 @@ __pycache__/
 
 # C extensions
 *.so
-
+documents/
+data/
+logs/
+temp/
 # Distribution / packaging
 .Python
 build/

@@ -1,0 +1,17 @@
+{
+  "model_type": "HuggingFace Open Source",
+  "model_name": "microsoft/DialoGPT-medium",
+  "embedding_model": "sentence-transformers/distiluse-base-multilingual-cased",
+  "chunk_size": 1000,
+  "chunk_overlap": 200,
+  "vector_store_type": "chroma",
+  "retrieval_k": 5,
+  "max_file_size_mb": 100,
+  "supported_formats": [".pdf", ".docx", ".doc"],
+  "enable_ocr": true,
+  "enable_table_extraction": true,
+  "language": "deu",
+  "ocr_language": "deu",
+  "batch_size": 10,
+  "log_level": "INFO"
+}
