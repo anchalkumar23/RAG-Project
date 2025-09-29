@@ -10,7 +10,6 @@ from transformers import (
 # LangChain LLM imports
 from langchain_community.llms import HuggingFacePipeline, OpenAI
 from langchain_openai import ChatOpenAI
-from langchain.callbacks.manager import CallbackManagerForLLMRun
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +23,22 @@ class LLMManager:
         self.llm = None
         self.tokenizer = None
         
+        logger.info(f"LLMManager initialized with config: {config}")
         self._initialize_model()
     
     def _initialize_model(self):
         """Initialize the language model based on configuration"""
         try:
+            logger.info(f"Initializing model - Type: {self.model_type}, Name: {self.model_name}")
+            
             if self.model_type == "OpenAI":
+                logger.info("Using OpenAI model")
                 self._initialize_openai_model()
             elif self.model_type == "HuggingFace Open Source":
+                logger.info("Using HuggingFace model")
                 self._initialize_huggingface_model()
             elif self.model_type == "Local Model":
+                logger.info("Using Local model")
                 self._initialize_local_model()
             else:
                 raise ValueError(f"Unsupported model type: {self.model_type}")
@@ -51,16 +56,33 @@ class LLMManager:
         if not api_key:
             raise ValueError("OpenAI API key is required")
         
-        if "gpt-3.5" in self.model_name or "gpt-4" in self.model_name:
+        logger.info(f"Initializing OpenAI model: {self.model_name}")
+        
+        # Validate model name
+        valid_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview", "text-davinci-003", "text-davinci-002"]
+        if self.model_name not in valid_models:
+            logger.warning(f"Model {self.model_name} may not be valid. Valid models: {valid_models}")
+            # If model name is invalid, use a default valid model
+            if "gpt-3.5" in self.model_name.lower():
+                self.model_name = "gpt-3.5-turbo"
+            elif "gpt-4" in self.model_name.lower():
+                self.model_name = "gpt-4"
+            else:
+                self.model_name = "gpt-3.5-turbo"  # Default fallback
+            logger.info(f"Using fallback model: {self.model_name}")
+        
+        # Use ChatOpenAI for all modern OpenAI models
+        if any(model in self.model_name.lower() for model in ["gpt-3.5", "gpt-4", "gpt-4-turbo"]):
             self.llm = ChatOpenAI(
-                model_name=self.model_name,
+                model=self.model_name,
                 openai_api_key=api_key,
                 temperature=0.1,
                 max_tokens=1000
             )
         else:
+            # Fallback to regular OpenAI for older models
             self.llm = OpenAI(
-                model_name=self.model_name,
+                model=self.model_name,
                 openai_api_key=api_key,
                 temperature=0.1,
                 max_tokens=1000

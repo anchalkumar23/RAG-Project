@@ -10,9 +10,9 @@ import pdfplumber
 from pypdf import PdfReader
 
 # Document processing
-from langchain.document_loaders import PyPDFLoader, Docx2txtLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 
 # Image and table processing
 import cv2

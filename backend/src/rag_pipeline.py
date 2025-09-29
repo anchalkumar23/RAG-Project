@@ -28,6 +28,7 @@ class RAGPipeline:
         """Initialize all RAG components"""
         try:
             logger.info("Initializing RAG pipeline components...")
+            logger.info(f"Configuration: {self.config}")
             
             # Initialize document processor
             self.document_processor = DocumentProcessor(
@@ -42,6 +43,7 @@ class RAGPipeline:
             )
             
             # Initialize LLM
+            logger.info(f"Initializing LLM with model_type: {self.config.get('model_type')}, model_name: {self.config.get('model_name')}")
             self.llm_manager = LLMManager(self.config)
             
             # Create QA chain
@@ -199,7 +201,7 @@ class RAGPipeline:
             start_time = time.time()
             
             # Get response from QA chain
-            result = self.qa_chain({"query": question})
+            result = self.qa_chain.invoke({"query": question})
             
             processing_time = time.time() - start_time
             

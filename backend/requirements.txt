@@ -1,14 +1,25 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+
+# Include all existing requirements
 streamlit
 langchain
 langchain-community
 langchain-openai
 langchain-huggingface
+langchain-core
+langchain-text-splitters
 sentence-transformers
 faiss-cpu
 PyPDF2
 pdfplumber
 python-docx
+docx2txt
 pillow
+pillow-heif
+pi-heif
 pandas
 numpy
 python-dotenv
@@ -19,8 +30,8 @@ bitsandbytes
 chromadb
 tiktoken
 pypdf
+unstructured_inference
 unstructured
 layoutparser
-detectro
 pytesseract
 opencv-python
