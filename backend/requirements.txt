@@ -34,4 +34,4 @@ unstructured_inference
 unstructured
 layoutparser
 pytesseract
-opencv-python
+opencv-python-headless
