@@ -11,6 +11,7 @@ from pypdf import PdfReader
 
 # Document processing
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import UnstructuredPowerPointLoader, UnstructuredImageLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
@@ -57,6 +58,12 @@ class DocumentProcessor:
                 return self._process_pdf(file_path)
             elif file_extension in ['.docx', '.doc']:
                 return self._process_word(file_path)
+            elif file_extension in ['.ppt', '.pptx']:
+                return self._process_powerpoint(file_path)
+            elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']:
+                return self._process_image(file_path)
+            elif file_extension in ['.txt', '.md']:
+                return self._process_text(file_path)
             else:
                 raise ValueError(f"Unsupported file type: {file_extension}")
                 
@@ -85,12 +92,12 @@ class DocumentProcessor:
             # Method 1: Use unstructured for comprehensive extraction
             elements = partition_pdf(
                 filename=file_path,
-                extract_images_in_pdf=True,
+                extract_images_in_pdf=False,  # Disable to improve performance for bulk uploads
                 infer_table_structure=True,
                 chunking_strategy="by_title",
                 max_characters=self.chunk_size,
                 combine_text_under_n_chars=100,
-                languages=["deu"]
+                languages=["eng", "deu"]  # Support both English and German
             )
             
             # Process elements
@@ -262,6 +269,137 @@ class DocumentProcessor:
                 'text_content': [chunk.page_content for chunk in chunks],
                 'chunks': len(chunks),
                 'metadata': {'extraction_method': 'basic_docx2txt'}
+            })
+        
+        return doc_info
+    
+    def _process_powerpoint(self, file_path: str) -> Dict[str, Any]:
+        """Process PowerPoint document"""
+        logger.info(f"Processing PowerPoint: {file_path}")
+        
+        doc_info = {
+            'name': Path(file_path).name,
+            'type': 'PowerPoint',
+            'size': os.path.getsize(file_path) // 1024,
+            'pages': 0,
+            'chunks': 0,
+            'text_content': [],
+            'images': [],
+            'tables': [],
+            'metadata': {}
+        }
+        
+        try:
+            loader = UnstructuredPowerPointLoader(file_path)
+            documents = loader.load()
+            
+            # Combine all text
+            all_text = '\n\n'.join([doc.page_content for doc in documents])
+            
+            # Split into chunks
+            chunks = self.text_splitter.split_documents([Document(page_content=all_text, metadata={'source': file_path})])
+            
+            doc_info.update({
+                'text_content': [chunk.page_content for chunk in chunks],
+                'chunks': len(chunks),
+                'pages': len(documents),  # Approximate slide count
+                'metadata': {'extraction_method': 'unstructured_ppt'}
+            })
+            
+        except Exception as e:
+            logger.error(f"Error processing PowerPoint: {str(e)}")
+            # Fallback to basic text extraction
+            doc_info.update({
+                'text_content': ["Could not extract text from PowerPoint file"],
+                'chunks': 1,
+                'metadata': {'extraction_method': 'failed', 'error': str(e)}
+            })
+        
+        return doc_info
+    
+    def _process_image(self, file_path: str) -> Dict[str, Any]:
+        """Process image with OCR"""
+        logger.info(f"Processing image: {file_path}")
+        
+        doc_info = {
+            'name': Path(file_path).name,
+            'type': 'Image',
+            'size': os.path.getsize(file_path) // 1024,
+            'pages': 1,
+            'chunks': 0,
+            'text_content': [],
+            'images': [],
+            'tables': [],
+            'metadata': {}
+        }
+        
+        try:
+            # Extract text using OCR
+            extracted_text = self.process_image_with_ocr(file_path)
+            
+            if extracted_text.strip():
+                # Split into chunks
+                documents = [Document(page_content=extracted_text, metadata={'source': file_path})]
+                chunks = self.text_splitter.split_documents(documents)
+                
+                doc_info.update({
+                    'text_content': [chunk.page_content for chunk in chunks],
+                    'chunks': len(chunks),
+                    'metadata': {'extraction_method': 'ocr', 'has_text': True}
+                })
+            else:
+                doc_info.update({
+                    'text_content': ["No text could be extracted from this image"],
+                    'chunks': 1,
+                    'metadata': {'extraction_method': 'ocr', 'has_text': False}
+                })
+                
+        except Exception as e:
+            logger.error(f"Error processing image: {str(e)}")
+            doc_info.update({
+                'text_content': ["Could not process image file"],
+                'chunks': 1,
+                'metadata': {'extraction_method': 'failed', 'error': str(e)}
+            })
+        
+        return doc_info
+    
+    def _process_text(self, file_path: str) -> Dict[str, Any]:
+        """Process plain text files"""
+        logger.info(f"Processing text file: {file_path}")
+        
+        doc_info = {
+            'name': Path(file_path).name,
+            'type': 'Text',
+            'size': os.path.getsize(file_path) // 1024,
+            'pages': 1,
+            'chunks': 0,
+            'text_content': [],
+            'images': [],
+            'tables': [],
+            'metadata': {}
+        }
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text_content = f.read()
+            
+            # Split into chunks
+            documents = [Document(page_content=text_content, metadata={'source': file_path})]
+            chunks = self.text_splitter.split_documents(documents)
+            
+            doc_info.update({
+                'text_content': [chunk.page_content for chunk in chunks],
+                'chunks': len(chunks),
+                'metadata': {'extraction_method': 'direct_read'}
+            })
+            
+        except Exception as e:
+            logger.error(f"Error processing text file: {str(e)}")
+            doc_info.update({
+                'text_content': ["Could not read text file"],
+                'chunks': 1,
+                'metadata': {'extraction_method': 'failed', 'error': str(e)}
             })
         
         return doc_info

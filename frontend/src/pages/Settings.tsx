@@ -36,12 +36,12 @@ export default function Settings() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'vector_store_export.pkl'
+      a.download = `vector_store_backup_${new Date().toISOString().split('T')[0]}.pkl`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-      toast.success('Vector store exported successfully')
+      toast.success('Vector store backup created successfully')
     } catch (error) {
       toast.error('Export failed')
     }
@@ -93,6 +93,7 @@ export default function Settings() {
               >
                 <option value="HuggingFace Open Source">HuggingFace Open Source</option>
                 <option value="OpenAI">OpenAI</option>
+                <option value="Ollama">Ollama</option>
                 <option value="Local Model">Local Model</option>
               </select>
             </div>
@@ -107,6 +108,21 @@ export default function Settings() {
                   value={config.openaiApiKey || ''}
                   onChange={(e) => setConfig({ ...config, openaiApiKey: e.target.value })}
                   placeholder="Enter your OpenAI API key"
+                  className="input-field w-full"
+                />
+              </div>
+            )}
+
+            {config.modelType === 'Ollama' && (
+              <div>
+                <label className="block text-sm font-medium text-secondary-200 mb-2">
+                  Ollama Base URL
+                </label>
+                <input
+                  type="text"
+                  value={config.ollamaBaseUrl || 'http://localhost:11434'}
+                  onChange={(e) => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
+                  placeholder="http://localhost:11434"
                   className="input-field w-full"
                 />
               </div>
@@ -138,6 +154,14 @@ export default function Settings() {
                   <option value="gpt-4">GPT-4</option>
                   <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
                 </select>
+              ) : config.modelType === 'Ollama' ? (
+                <input
+                  type="text"
+                  value={config.modelName}
+                  onChange={(e) => setConfig({ ...config, modelName: e.target.value })}
+                  placeholder="llama2, mistral, codellama, etc."
+                  className="input-field w-full"
+                />
               ) : (
                 <input
                   type="text"
@@ -245,18 +269,29 @@ export default function Settings() {
         className="card"
       >
         <h3 className="text-lg font-semibold mb-4">Data Management</h3>
+        <div className="mb-4 p-4 bg-secondary-800 rounded-lg">
+          <h4 className="font-medium text-secondary-200 mb-2">About Vector Store Backup</h4>
+          <p className="text-sm text-secondary-400 mb-2">
+            <strong>Export:</strong> Creates a backup file containing all processed document embeddings and metadata. 
+            This allows you to save your work and restore it later without reprocessing documents.
+          </p>
+          <p className="text-sm text-secondary-400">
+            <strong>Import:</strong> Restores a previously exported backup, instantly loading all processed documents 
+            and their embeddings. Useful for transferring data between systems or restoring previous states.
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={handleExport}
             className="btn-secondary flex items-center justify-center space-x-2"
           >
             <Download className="w-4 h-4" />
-            <span>Export Vector Store</span>
+            <span>Create Backup</span>
           </button>
           
           <label className="btn-secondary flex items-center justify-center space-x-2 cursor-pointer">
             <Upload className="w-4 h-4" />
-            <span>Import Vector Store</span>
+            <span>Restore Backup</span>
             <input
               type="file"
               accept=".pkl"

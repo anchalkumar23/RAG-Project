@@ -9,6 +9,7 @@ from transformers import (
 
 # LangChain LLM imports
 from langchain_community.llms import HuggingFacePipeline, OpenAI
+from langchain_community.llms import Ollama
 from langchain_openai import ChatOpenAI
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,9 @@ class LLMManager:
             if self.model_type == "OpenAI":
                 logger.info("Using OpenAI model")
                 self._initialize_openai_model()
+            elif self.model_type == "Ollama":
+                logger.info("Using Ollama model")
+                self._initialize_ollama_model()
             elif self.model_type == "HuggingFace Open Source":
                 logger.info("Using HuggingFace model")
                 self._initialize_huggingface_model()
@@ -87,6 +91,29 @@ class LLMManager:
                 temperature=0.1,
                 max_tokens=1000
             )
+    
+    def _initialize_ollama_model(self):
+        """Initialize Ollama model"""
+        base_url = self.config.get('ollama_base_url', 'http://localhost:11434')
+        
+        logger.info(f"Initializing Ollama model: {self.model_name} at {base_url}")
+        
+        try:
+            self.llm = Ollama(
+                model=self.model_name,
+                base_url=base_url,
+                temperature=0.1,
+                num_predict=1000,
+                timeout=60
+            )
+            
+            # Test the connection
+            test_response = self.llm.invoke("Hello, respond with 'OK' if you can hear me.")
+            logger.info("Ollama model initialized and tested successfully")
+            
+        except Exception as e:
+            logger.error(f"Error initializing Ollama model: {str(e)}")
+            raise ValueError(f"Could not connect to Ollama at {base_url}. Make sure Ollama is running and the model '{self.model_name}' is available. Error: {str(e)}")
     
     def _initialize_huggingface_model(self):
         """Initialize HuggingFace model"""
@@ -286,6 +313,8 @@ class LLMManager:
         """Format prompt for better model performance"""
         if self.model_type == "OpenAI":
             return prompt
+        elif self.model_type == "Ollama":
+            return f"Human: {prompt}\nAssistant:"
         
         # For HuggingFace models, add instruction formatting
         if "mistral" in self.model_name.lower():

@@ -199,6 +199,17 @@ class VectorStoreManager:
                 logger.warning("Vector store not initialized")
                 return None
             
+            # Use MMR (Maximal Marginal Relevance) for better diversity in results
+            if search_type == "mmr" and hasattr(self.vector_store, 'as_retriever'):
+                return self.vector_store.as_retriever(
+                    search_type="mmr",
+                    search_kwargs={
+                        "k": k,
+                        "fetch_k": k * 2,  # Fetch more candidates for diversity
+                        "lambda_mult": 0.7  # Balance between relevance and diversity
+                    }
+                )
+            
             return self.vector_store.as_retriever(
                 search_type=search_type,
                 search_kwargs={"k": k}

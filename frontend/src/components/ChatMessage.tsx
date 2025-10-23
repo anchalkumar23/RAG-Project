@@ -51,30 +51,6 @@ export default function ChatMessage({ message, index }: ChatMessageProps) {
             {message.content}
           </p>
           
-          {message.sources && message.sources.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-secondary-700">
-              <p className="text-xs text-secondary-400 mb-2">Sources:</p>
-              <div className="space-y-2">
-                {message.sources.map((source, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-secondary-900 rounded-lg p-2 text-xs"
-                  >
-                    <p className="text-secondary-300 mb-1">
-                      {source.content}
-                    </p>
-                    {source.metadata.source && (
-                      <div className="flex items-center text-secondary-500">
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        <span>{source.metadata.source}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          
           <p className="text-xs text-secondary-400 mt-2">
             {new Date(message.timestamp).toLocaleTimeString()}
           </p>

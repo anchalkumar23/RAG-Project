@@ -35,7 +35,7 @@ export default function Documents() {
           size: doc.size,
           pages: doc.pages,
           chunks: doc.chunks,
-          uploadedAt: new Date().toISOString(),
+          uploadedAt: doc.uploadedAt || new Date().toISOString(),
           status: 'ready',
         })
       })
@@ -70,6 +70,15 @@ export default function Documents() {
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/msword': ['.doc'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/gif': ['.gif'],
+      'image/bmp': ['.bmp'],
+      'image/tiff': ['.tiff'],
+      'text/plain': ['.txt'],
+      'text/markdown': ['.md'],
     },
     multiple: true,
   })
@@ -150,6 +159,9 @@ export default function Documents() {
             </h3>
             <p className="text-secondary-400 mb-4">
               Drag and drop PDF or Word files here, or click to browse
+            </p>
+            <p className="text-xs text-secondary-500 mb-4">
+              Supported formats: PDF, DOC, DOCX, PPT, PPTX, PNG, JPG, TXT, MD
             </p>
             <button className="btn-primary">
               Choose Files

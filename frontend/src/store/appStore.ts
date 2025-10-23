@@ -43,6 +43,7 @@ interface AppState {
     chunkSize: number
     chunkOverlap: number
     openaiApiKey?: string
+    ollamaBaseUrl?: string
   }
   
   // Actions
@@ -73,6 +74,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     chunkSize: 1000,
     chunkOverlap: 200,
     openaiApiKey: '',
+    ollamaBaseUrl: 'http://localhost:11434',
   },
 
   // Actions

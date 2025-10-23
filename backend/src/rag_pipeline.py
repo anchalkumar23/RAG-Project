@@ -59,16 +59,23 @@ class RAGPipeline:
         """Create the question-answering chain"""
         try:
             # Custom prompt template for better responses
-            prompt_template = """Use the following pieces of context to answer the question at the end. 
-            If you don't know the answer based on the context, just say that you don't know, don't try to make up an answer. If the question is asked in German, answer in German.
+            prompt_template = """You are a helpful AI assistant. Use the following pieces of context to answer the question at the end. 
+            
+            IMPORTANT INSTRUCTIONS:
+            - Answer based on the provided context below
+            - If you cannot find a direct answer in the context, try to provide relevant information from the context that might help
+            - Only say "I don't have enough information" if the context is completely unrelated to the question
+            - Be specific and detailed when the context supports it
+            - If the question is in German, answer in German
+            - If the question is in English, answer in English
+            - Provide a comprehensive answer using all relevant information from the context
             
             Context:
             {context}
             
             Question: {question}
             
-            Answer: Let me analyze the provided context to answer your question.
-            
+            Helpful Answer:
             """
             
             PROMPT = PromptTemplate(
@@ -79,7 +86,7 @@ class RAGPipeline:
             # Get retriever from vector store
             retriever = self.vector_store.get_retriever(
                 search_type="similarity",
-                k=self.config.get('retrieval_k', 5)
+                k=self.config.get('retrieval_k', 10)  # Increased to 10 for better context
             )
             
             if retriever is None:
@@ -146,31 +153,42 @@ class RAGPipeline:
             List of document processing information
         """
         processed_docs = []
+        batch_size = 50  # Process in smaller batches for better memory management
         
         try:
             logger.info(f"Processing {len(file_paths)} documents in batch")
             
-            for i, file_path in enumerate(file_paths):
-                try:
-                    doc_info = self.document_processor.process_document(file_path)
-                    processed_docs.append(doc_info)
-                    
-                    if progress_callback:
-                        progress_callback(i + 1, len(file_paths), file_path)
-                        
-                except Exception as e:
-                    logger.error(f"Error processing {file_path}: {str(e)}")
-                    continue
-            
-            # Add all documents to vector store at once
-            if processed_docs:
-                success = self.vector_store.add_documents(processed_docs)
+            # Process in batches
+            for batch_start in range(0, len(file_paths), batch_size):
+                batch_end = min(batch_start + batch_size, len(file_paths))
+                batch_files = file_paths[batch_start:batch_end]
                 
-                if success:
-                    self._create_qa_chain()
-                    logger.info(f"Successfully processed and indexed {len(processed_docs)} documents")
-                else:
-                    logger.error("Failed to add documents to vector store")
+                logger.info(f"Processing batch {batch_start//batch_size + 1}/{(len(file_paths) + batch_size - 1)//batch_size}")
+                
+                batch_docs = []
+                for i, file_path in enumerate(batch_files):
+                    try:
+                        doc_info = self.document_processor.process_document(file_path)
+                        batch_docs.append(doc_info)
+                        processed_docs.append(doc_info)
+                        
+                        if progress_callback:
+                            progress_callback(batch_start + i + 1, len(file_paths), file_path)
+                            
+                    except Exception as e:
+                        logger.error(f"Error processing {file_path}: {str(e)}")
+                        continue
+                
+                # Add batch to vector store
+                if batch_docs:
+                    success = self.vector_store.add_documents(batch_docs)
+                    if not success:
+                        logger.error(f"Failed to add batch {batch_start//batch_size + 1} to vector store")
+            
+            # Recreate QA chain after all batches
+            if processed_docs:
+                self._create_qa_chain()
+                logger.info(f"Successfully processed and indexed {len(processed_docs)} documents")
             
             return processed_docs
             

@@ -28,18 +28,29 @@ export default function UploadModal({
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/msword': ['.doc'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/gif': ['.gif'],
+      'image/bmp': ['.bmp'],
+      'image/tiff': ['.tiff'],
+      'text/plain': ['.txt'],
+      'text/markdown': ['.md'],
     },
     multiple: true,
   })
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+  const removeFile = (indexToRemove: number) => {
+    setSelectedFiles((prev) => prev.filter((_, index) => index !== indexToRemove))
   }
 
   const handleUpload = () => {
     if (selectedFiles.length > 0) {
-      const fileList = selectedFiles as unknown as FileList
-      onUpload(fileList)
+      // Create a proper FileList-like object
+      const dt = new DataTransfer()
+      selectedFiles.forEach(file => dt.items.add(file))
+      onUpload(dt.files)
     }
   }
 
@@ -56,6 +67,13 @@ export default function UploadModal({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
+  const getUploadButtonText = () => {
+    const count = selectedFiles.length
+    if (count === 0) return 'Select Files'
+    if (count === 1) return 'Upload 1 File'
+    return `Upload ${count} Files`
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -70,7 +88,7 @@ export default function UploadModal({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-secondary-900 rounded-xl border border-secondary-800 w-full max-w-2xl max-h-[80vh] overflow-hidden"
+            className="bg-secondary-900 rounded-xl border border-secondary-800 w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-6 border-b border-secondary-800">
@@ -85,7 +103,7 @@ export default function UploadModal({
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 flex-1 overflow-hidden flex flex-col">
               <div
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
@@ -99,46 +117,52 @@ export default function UploadModal({
                 <p className="text-secondary-200 mb-2">
                   Drag and drop files here, or click to browse
                 </p>
-                <p className="text-sm text-secondary-400">
-                  Supports PDF, DOC, and DOCX files
+                <p className="text-sm text-secondary-400 mb-2">
+                  Supports PDF, DOC, DOCX, PPT, PPTX, PNG, JPG, TXT, MD files
+                </p>
+                <p className="text-xs text-secondary-500">
+                  You can upload up to 6000 files at once
                 </p>
               </div>
 
               {selectedFiles.length > 0 && (
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  <h3 className="font-medium text-secondary-200">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <h3 className="font-medium text-secondary-200 mb-3">
                     Selected Files ({selectedFiles.length})
                   </h3>
-                  {selectedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between bg-secondary-800 rounded-lg p-3"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <File className="w-5 h-5 text-primary-500" />
-                        <div>
-                          <p className="text-sm font-medium text-secondary-200">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-secondary-400">
-                            {formatFileSize(file.size)}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="p-1 hover:bg-secondary-700 rounded transition-colors"
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        key={`${file.name}-${file.size}-${index}`}
+                        className="flex items-center justify-between bg-secondary-800 rounded-lg p-3 flex-shrink-0"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <File className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-secondary-200 truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-secondary-400">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="p-1 hover:bg-secondary-700 rounded transition-colors flex-shrink-0 ml-2"
+                          disabled={isUploading}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-secondary-800">
-              <button onClick={handleClose} className="btn-ghost">
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-secondary-800 flex-shrink-0">
+              <button onClick={handleClose} className="btn-ghost" disabled={isUploading}>
                 Cancel
               </button>
               <button
@@ -146,7 +170,7 @@ export default function UploadModal({
                 disabled={selectedFiles.length === 0 || isUploading}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isUploading ? 'Uploading...' : `Upload ${selectedFiles.length} Files`}
+                {isUploading ? 'Uploading...' : getUploadButtonText()}
               </button>
             </div>
           </motion.div>

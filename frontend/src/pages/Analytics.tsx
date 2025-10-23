@@ -14,7 +14,7 @@ import {
   LineChart,
   Line,
 } from 'recharts'
-import { FileText, MessageSquare, Clock, TrendingUp } from 'lucide-react'
+import { FileText, MessageSquare } from 'lucide-react'
 import { apiService } from '@/services/api'
 import { useAppStore } from '@/store/appStore'
 
@@ -73,18 +73,6 @@ export default function Analytics() {
       icon: MessageSquare,
       color: 'text-green-500',
     },
-    {
-      title: 'Avg Processing Time',
-      value: '2.3s',
-      icon: Clock,
-      color: 'text-yellow-500',
-    },
-    {
-      title: 'Success Rate',
-      value: '98.5%',
-      icon: TrendingUp,
-      color: 'text-purple-500',
-    },
   ]
 
   return (
@@ -104,7 +92,7 @@ export default function Analytics() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 gap-6"
       >
         {stats.map((stat) => (
           <div key={stat.title} className="card">

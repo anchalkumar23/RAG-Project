@@ -1,12 +1,6 @@
 import { motion } from 'framer-motion'
 import { useQuery } from 'react-query'
-import {
-  FileText,
-  MessageSquare,
-  BarChart3,
-  Clock,
-  Activity,
-} from 'lucide-react'
+import { FileText, MessageSquare, Activity } from 'lucide-react'
 import { apiService } from '../services/api'
 import { useAppStore } from '../store/appStore'
 import StatsCard from '../components/StatsCard.tsx'
@@ -16,7 +10,7 @@ import QuickActions from '../components/QuickActions'
 export default function Dashboard() {
   const { documents, chatHistory } = useAppStore()
   
-  const { data: systemStats, isLoading } = useQuery(
+  const { data: systemStats } = useQuery(
     'systemStats',
     apiService.getSystemStats,
     {
@@ -28,28 +22,21 @@ export default function Dashboard() {
     {
       title: 'Total Documents',
       value: documents.length.toString(),
-      change: '+12%',
-      changeType: 'positive' as const,
+      change: 'Active',
+      changeType: 'neutral' as const,
       icon: FileText,
     },
     {
       title: 'Chat Messages',
       value: chatHistory.length.toString(),
-      change: '+8%',
-      changeType: 'positive' as const,
+      change: 'Recent',
+      changeType: 'neutral' as const,
       icon: MessageSquare,
     },
     {
-      title: 'Processing Time',
-      value: '2.3s',
-      change: '-15%',
-      changeType: 'positive' as const,
-      icon: Clock,
-    },
-    {
       title: 'System Status',
-      value: systemStats?.data.pipeline_status || 'Loading...',
-      change: 'Healthy',
+      value: systemStats?.data.pipeline_status === 'initialized' ? 'Ready' : 'Not Ready',
+      change: systemStats?.data.pipeline_status === 'initialized' ? 'Healthy' : 'Initializing',
       changeType: 'neutral' as const,
       icon: Activity,
     },
@@ -74,7 +61,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
       >
         {stats.map((stat, index) => (
           <StatsCard key={stat.title} {...stat} index={index} />
@@ -108,7 +95,7 @@ export default function Dashboard() {
           className="card"
         >
           <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <BarChart3 className="w-5 h-5 mr-2 text-primary-500" />
+            <Activity className="w-5 h-5 mr-2 text-primary-500" />
             System Overview
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

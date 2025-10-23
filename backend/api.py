@@ -7,7 +7,10 @@ import os
 import tempfile
 import json
 import logging
+import uuid
+from datetime import datetime
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 # Import your existing modules
 from src.rag_pipeline import RAGPipeline
@@ -17,20 +20,9 @@ from src.utils import setup_directories, load_config, validate_file
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="RAG Document Assistant API", version="1.0.0")
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Global variables
 rag_pipeline = None
-processed_documents = []
+processed_documents = {}  # Changed to dict with UUID keys
 
 # Pydantic models
 class ChatMessage(BaseModel):
@@ -43,6 +35,7 @@ class PipelineConfig(BaseModel):
     chunkSize: int
     chunkOverlap: int
     openaiApiKey: Optional[str] = None
+    ollamaBaseUrl: Optional[str] = None
 
 class DocumentResponse(BaseModel):
     id: str
@@ -53,11 +46,35 @@ class DocumentResponse(BaseModel):
     chunks: int
     status: str
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the application"""
+# @app.on_event("startup")
+# async def startup_event():
+#     """Initialize the application"""
+#     setup_directories()
+#     logger.info("RAG Document Assistant API started")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup Logic ---
     setup_directories()
     logger.info("RAG Document Assistant API started")
+
+    yield  # Application is running
+
+app = FastAPI(
+    title="RAG Document Assistant API",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
@@ -101,6 +118,9 @@ async def initialize_pipeline(config: PipelineConfig):
         if config.openaiApiKey:
             backend_config['openai_api_key'] = config.openaiApiKey
         
+        if config.ollamaBaseUrl:
+            backend_config['ollama_base_url'] = config.ollamaBaseUrl
+        
         logger.info(f"Received configuration from frontend: {backend_config}")
         
         rag_pipeline = RAGPipeline(backend_config)
@@ -117,9 +137,9 @@ async def get_documents():
     """Get all processed documents"""
     try:
         documents = []
-        for i, doc in enumerate(processed_documents):
+        for doc_id, doc in processed_documents.items():
             documents.append({
-                "id": str(i),
+                "id": doc_id,
                 "name": doc.get('name', 'Unknown'),
                 "type": doc.get('type', 'Unknown'),
                 "size": doc.get('size', 0),
@@ -143,17 +163,28 @@ async def upload_documents(files: List[UploadFile] = File(...)):
     if not rag_pipeline:
         raise HTTPException(status_code=400, detail="Pipeline not initialized. Please initialize the pipeline first.")
     
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+    
     try:
         uploaded_docs = []
         
         for file in files:
+            if not file.filename:
+                continue
+                
             # Validate file
-            if not file.filename.lower().endswith(('.pdf', '.docx', '.doc')):
+            supported_extensions = ('.pdf', '.docx', '.doc', '.pptx', '.ppt', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.txt', '.md')
+            if not file.filename.lower().endswith(supported_extensions):
+                logger.warning(f"Skipping unsupported file: {file.filename}")
                 continue
             
             # Save uploaded file temporarily
             with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp_file:
                 content = await file.read()
+                if not content:
+                    logger.warning(f"Skipping empty file: {file.filename}")
+                    continue
                 tmp_file.write(content)
                 tmp_file_path = tmp_file.name
             
@@ -161,12 +192,14 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 # Process document
                 doc_info = rag_pipeline.process_document(tmp_file_path)
                 doc_info['name'] = file.filename
-                doc_info['uploadedAt'] = '2024-01-01T00:00:00Z'  # You can use actual timestamp
+                doc_info['uploadedAt'] = datetime.now().isoformat()
                 
-                processed_documents.append(doc_info)
+                # Generate unique ID for the document
+                doc_id = str(uuid.uuid4())
+                processed_documents[doc_id] = doc_info
                 
                 uploaded_docs.append({
-                    "id": str(len(processed_documents) - 1),
+                    "id": doc_id,
                     "name": file.filename,
                     "type": doc_info.get('type', 'Unknown'),
                     "size": doc_info.get('size', 0),
@@ -177,7 +210,11 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 
             finally:
                 # Clean up temporary file
-                os.unlink(tmp_file_path)
+                if os.path.exists(tmp_file_path):
+                    os.unlink(tmp_file_path)
+        
+        if not uploaded_docs:
+            raise HTTPException(status_code=400, detail="No valid files were processed")
         
         return {"data": uploaded_docs}
         
@@ -191,16 +228,13 @@ async def delete_document(document_id: str):
     global processed_documents
     
     try:
-        doc_index = int(document_id)
-        if 0 <= doc_index < len(processed_documents):
-            removed_doc = processed_documents.pop(doc_index)
+        if document_id in processed_documents:
+            removed_doc = processed_documents.pop(document_id)
             logger.info(f"Deleted document: {removed_doc.get('name', 'Unknown')}")
             return {"message": "Document deleted successfully"}
         else:
             raise HTTPException(status_code=404, detail="Document not found")
             
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid document ID")
     except Exception as e:
         logger.error(f"Error deleting document: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -234,11 +268,11 @@ async def get_analytics():
     try:
         # Basic analytics based on processed documents
         total_docs = len(processed_documents)
-        total_pages = sum(doc.get('pages', 0) for doc in processed_documents)
-        total_chunks = sum(doc.get('chunks', 0) for doc in processed_documents)
+        total_pages = sum(doc.get('pages', 0) for doc in processed_documents.values())
+        total_chunks = sum(doc.get('chunks', 0) for doc in processed_documents.values())
         
         doc_types = {}
-        for doc in processed_documents:
+        for doc in processed_documents.values():
             doc_type = doc.get('type', 'Unknown')
             doc_types[doc_type] = doc_types.get(doc_type, 0) + 1
         
